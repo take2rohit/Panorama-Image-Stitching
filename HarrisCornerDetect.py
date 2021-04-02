@@ -1,13 +1,17 @@
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy import signal
-
 
 
 class HarrisDetector():
 
     def __init__(self ,path, resizer=True):
+
+        '''
+        Parameters:
+            path : Path of image
+            resizer : Resize image to (400,400) for fast processing
+        '''
 
         self.im = cv2.imread(path)
         if resizer:
@@ -16,6 +20,19 @@ class HarrisDetector():
         
 
     def sobel(self,custom_im=None, disp=False):
+
+        '''
+        Calucalte derivative of the image using sobel operator.
+
+            Parameters
+                custom_im : input a different numpy image. 
+                            If no image given use class common image
+                disp : whether to display results or not
+            
+            Returns:
+                x_grad : numpy array of x gradient image 
+                y_grad : numpy array of y gradient image
+        '''
         
         if custom_im is None:
             custom_im = self.im_bw
@@ -40,8 +57,20 @@ class HarrisDetector():
         return x_grad, y_grad
 
 
-    def findCorners(self,k=0.05,thresh_ratio=0.9, disp=False):
-        # blur = self.im_bw
+    def findCorners(self,k=0.005,thresh_ratio=0.4, disp=False):
+
+        '''
+
+        Find corners using Harris detector
+
+            Parameters:
+                k : Used in finding R value
+                thresh_ratio : High threshold means lesser points  (0 < thresh_ratio < 1)
+                               thresh_ratio of 0 means all points whose R value is greater than 0
+                               thresh_ratio of 1 means only one point ()
+                disp : whether to display results or not
+        '''
+
         blur = cv2.GaussianBlur(self.im_bw,(3,3),0)
         x_grad, y_grad = self.sobel(blur)
         h,w = blur.shape[0], blur.shape[1]
@@ -64,31 +93,30 @@ class HarrisDetector():
                 R = np.linalg.det(M) - k * np.trace(M)**2  
                 R_image[i+5,j+5] =  R
 
+
         max_R = np.max(R_image) * thresh_ratio
+
         R_image[R_image > max_R] = 255
         R_image[R_image < max_R] = 0
 
         corner_r, corner_c = np.nonzero(R_image)
-        r_prev, c_prev = corner_r[0], corner_c[0]
 
-        for r, c in zip(corner_r, corner_c):
-            
-            # if ((r - r_prev)**2 + (c - c_prev)**2)**(0.5) >  40:
-            cv2.circle(self.im, (c,r), 1, (255,0,255))
-    
-            r_prev = r
-            c_prev = c
+        for r, c in zip(corner_r, corner_c):         
+            cv2.circle(self.im, (c,r), 5, (255,0,255), thickness=2)
 
-        cv2.namedWindow('Final Image', cv2.WINDOW_NORMAL)
-        cv2.namedWindow('R image thresholded', cv2.WINDOW_NORMAL)
-        cv2.imshow('Final Image',self.im)
-        cv2.imshow('R image thresholded',R_image.astype(np.uint8))
-        cv2.waitKey(0)
+        if disp:
+
+            print(f'total corner: {len(corner_r)}')
+            cv2.namedWindow('R image thresholded', cv2.WINDOW_NORMAL)
+            cv2.namedWindow('Final Image', cv2.WINDOW_NORMAL)
+
+            cv2.imshow('R image thresholded',R_image.astype(np.uint8))
+            cv2.imshow('Threshold image',self.im)
+
+            cv2.waitKey(0)
         
 
+if __name__=='__main__':
 
-#read images
-
-Harris = HarrisDetector('img/chess.jpg',resizer=True)
-# Harris.sobel(disp=True) 
-Harris.findCorners(disp=False)
+    Harris = HarrisDetector('img/lenna.png',resizer=True)
+    Harris.findCorners(thresh_ratio=0.3, disp=True)
