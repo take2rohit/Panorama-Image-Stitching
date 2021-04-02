@@ -60,7 +60,6 @@ class HarrisDetector():
     def findCorners(self,k=0.005,thresh_ratio=0.4, disp=False):
 
         '''
-
         Find corners using Harris detector
 
             Parameters:
