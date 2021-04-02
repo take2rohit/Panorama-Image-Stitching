@@ -1,5 +1,7 @@
 # Panorama Stitching from Scratch
 
+Goal of this repo is to create a horizontal Panorama from a set of images. 
+
 ## Tasks
 
 ### For Harris Corner Detection
@@ -9,11 +11,9 @@
 
 ### For Panorama Stitching
 
-- [ ] Implement Basic Image stitching for any number of images using OpenCV functions
-  - [ ] `Features`: Inbuilt SIFT features and SIFT descriptors 
-  - [ ] `Homography`: 8 points
-  - [ ] `Homography`: RANSAC (inbuilt)
-  - [ ] `Homography`: RANSAC (from scratch)
+- [x] Implement Basic Image stitching for any number of images using OpenCV functions
+  - [x] `Features`: Inbuilt SIFT features and SIFT descriptors 
+  - [x] `Homography`: RANSAC (inbuilt)
   - [ ] `Blending` : Weighted transformed images
   
 - [ ] Implement Basic Image stitching for any number of images from scratch

@@ -117,5 +117,5 @@ class HarrisDetector():
 
 if __name__=='__main__':
 
-    Harris = HarrisDetector('img/lenna.png',resizer=True)
+    Harris = HarrisDetector('test_images/harris_img',resizer=True)
     Harris.findCorners(thresh_ratio=0.3, disp=True)
