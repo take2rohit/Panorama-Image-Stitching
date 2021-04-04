@@ -257,8 +257,8 @@ if __name__ == '__main__':
 
     ############### Run for all sets ###############
 
-    root = 'test_images/panorama_img/'
-    save_dir = 'test_images/stitched_results'
+    root = 'images/panorama_img/'
+    save_dir = 'images/stitched_results'
 
     for image_folder in os.listdir(root):
         print(f'\nCurrently testing {image_folder}')
