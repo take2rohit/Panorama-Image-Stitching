@@ -4,7 +4,7 @@ import os, glob
 
 class Panorama():
 
-    def __init__(self,image_folder,save_path=None, show_imgs=False):
+    def __init__(self,image_folder,save_path=None, x_originshift=0, y_originshift=0,show_imgs=False):
 
         '''
         Parameters:
@@ -13,8 +13,13 @@ class Panorama():
             save_path : Directory to save panorama image. If directory 
                         doesnt exists, code will create automatically
             show_imgs : Show input images which are to be stitches
+            x_originshift : Shift first reference image of panorama 
+                            to particular x value in canvas
+            y_originshift : Shift first reference image of panorama 
+                            to particular y value in canvas
         '''
 
+        self.x_originshift, self.y_originshift = x_originshift, y_originshift
         self.image_folder = image_folder
         img_path = sorted(glob.glob(os.path.join(self.image_folder,'*')))
         self.images = [cv2.imread(p) for p in img_path]
@@ -46,7 +51,18 @@ class Panorama():
 
         cnv_shp = (img1_shp[0]+padding,width,img1_shp[2])
         canvas = np.zeros(cnv_shp,np.uint8) 
-        canvas[0:img1_shp[0],0:img1_shp[1]] = self.images[0]
+
+        # print(canvas.shape,(self.y_originshift+img1_shp[0],self.x_originshift+img1_shp[1] ))
+
+        if self.y_originshift+img1_shp[0] > canvas.shape[0]:
+            raise Exception(f"x_originshift should be less than {canvas.shape[0]-img1_shp[0]}")
+
+        if self.x_originshift+img1_shp[1] > canvas.shape[1]:
+            raise Exception(f"y_originshift should be less than {canvas.shape[1]-img1_shp[1]}")
+
+
+        canvas[self.y_originshift:self.y_originshift+img1_shp[0],
+            self.x_originshift:self.x_originshift+img1_shp[1]] = self.images[0]
 
         return canvas
 
@@ -112,8 +128,14 @@ class Panorama():
         img2_pts = np.float32([kp2[val.trainIdx].pt for val in best_n]).reshape(-1,1,2)
         
         H,mask = cv2.findHomography(img2_pts,img1_pts,cv2.RANSAC)
+        T = np.array(   [[ 1 , 0 , self.x_originshift],
+                        [ 0 , 1 , self.y_originshift],
+                        [ 0 , 0 , 1]])
+                    
+        translatedH = np.matmul(T,H)
         
-        img3 = cv2.warpPerspective(self.images[1],H,(canvas.shape[1],canvas.shape[0]))        
+        img3 = cv2.warpPerspective(self.images[1],translatedH,(canvas.shape[1],canvas.shape[0]))
+ 
         canvas = self.image_stitch(canvas,img3)
         can_r, can_c = canvas.shape[0], canvas.shape[1]
 
@@ -141,7 +163,6 @@ class Panorama():
                 x_bottom = x_val
                 break
         canvas_crop = canvas[0:y_val, 0:x_val]
-        # cv2.imshow('panorama',canvas_crop)
         
         cv2.waitKey(0)
 
@@ -151,7 +172,8 @@ if __name__ == '__main__':
     images_dir = 'test_images/panorama_img/set1'
     save_dir = 'test_images/panorama_img/results'
 
-    pan = Panorama(images_dir, save_path=save_dir, show_imgs=True)
+    pan = Panorama(images_dir, save_path=save_dir, 
+                x_originshift=500, y_originshift=20, show_imgs=False)
     pan.createPanaroma()
 
     # img1 = cv2.imread('panorama_img/set1/1.jpeg',0)
