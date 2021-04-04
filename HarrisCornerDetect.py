@@ -22,7 +22,7 @@ class HarrisDetector():
     def sobel(self, custom_im=None, disp=False):
 
         '''
-        Calculalte derivative of the image using sobel operator.
+        Calculate derivative of the image using sobel operator.
 
             Parameters
                 custom_im : input a different numpy image. 
