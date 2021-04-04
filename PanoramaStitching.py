@@ -146,6 +146,69 @@ class Panorama():
         cv2.waitKey(0)
 
 
+    def find_num_matches(self, img1, img2):
+        sift = cv2.SIFT_create()
+
+        kp1, des1 = sift.detectAndCompute(img1, None)
+        kp2, des2 = sift.detectAndCompute(img2, None)
+
+        bf = cv2.BFMatcher()
+        matches = bf.knnMatch(des1, des2, k=2)
+
+        good_features = []
+        for m, n in matches:
+            if m.distance < 0.7*n.distance:
+                good_features.append(m)
+
+        return len(good_features)
+
+
+    def find_best_matches(self):
+        pairs = []
+        for i in range(len(self.images)):
+            best_idx = -1
+            best_idx_nums = 0
+            for j in range(len(self.images)):
+                if j == i:
+                    continue
+                num_matches = self.find_num_matches(self.bw_images[i], self.bw_images[j])
+                if num_matches > best_idx_nums:
+                    best_idx_nums = num_matches
+                    best_idx = j
+            pairs.append([i, best_idx])
+        print('Original connections:', pairs)
+        link = self.find_link(pairs)
+        print('Link:', link)
+
+
+    def find_link(self, connections):
+        def op(ip):
+            if ip == 0:
+                return 1
+            return 0
+        c = connections.copy()
+        link = [c[0][0], c[0][1]]
+        del c[0]
+        while len(link) < len(connections):
+            leaf = link[0]
+            x, y = np.where(np.array(c) == leaf)
+            if len(x) > 0:
+                x, y = x[0], y[0]
+                element = c[x][op(y)]
+                if element not in link:
+                    link.insert(0, element)
+                del c[x]
+            leaf = link[-1]
+            x, y = np.where(np.array(c) == leaf)
+            if len(x) > 0:
+                x, y = x[0], y[0]
+                element = c[x][op(y)]
+                if element not in link:
+                    link.append(element)
+                del c[x]
+        return link
+
+
 if __name__ == '__main__':
 
     images_dir = 'test_images/panorama_img/set1'
