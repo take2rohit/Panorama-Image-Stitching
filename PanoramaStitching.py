@@ -232,7 +232,7 @@ class Panorama():
 
 if __name__ == '__main__':
 
-    images_dir = 'test_images/panorama_img/set1'
+    images_dir = 'test_images/panorama_img/set11'
     save_dir = 'test_images/panorama_img/results'
 
     pan = Panorama(images_dir, save_path=save_dir, 
