@@ -4,27 +4,35 @@ import os, glob
 
 class Panorama():
 
-    def __init__(self,image_folder,save_path=None, x_originshift=0, y_originshift=0,show_imgs=False):
+    def __init__(self,image_folder, show_imgs=False,
+                x_originshift=0, y_originshift=0,bottom_pad=100):
 
         '''
         Parameters:
+
             image_folder : Folder consisting of many images to be 
                             be stitched horizontally
+
             save_path : Directory to save panorama image. If directory 
                         doesnt exists, code will create automatically
+
             show_imgs : Show input images which are to be stitches
+
             x_originshift : Shift first reference image of panorama 
                             to particular x value in canvas
+
             y_originshift : Shift first reference image of panorama 
                             to particular y value in canvas
-        '''
 
+            bottom_pad : Add black padding to the bottom of canvas 
+        '''
+        
         self.x_originshift, self.y_originshift = x_originshift, y_originshift
+        self.bottom_pad = bottom_pad
         self.image_folder = image_folder
         img_path = sorted(glob.glob(os.path.join(self.image_folder,'*')))
         self.images = [cv2.imread(p) for p in img_path]
         self.bw_images = [cv2.imread(p,0) for p in img_path]
-        self.save_path = save_path
 
         if show_imgs:
             for c, img in enumerate(self.images):
@@ -34,12 +42,12 @@ class Panorama():
             print('Press any key to create a Panorama',end='\n \n')
             cv2.waitKey(0)
 
-    def createCanvas(self, padding = 30):
+    def createCanvas(self, bottom_pad):
 
         '''
         Creates a Canvas with first image appended in it. 
         Canvas dimension 
-            height => height of first image + padding
+            height => height of first image + bottom_pad
             width => sum of width of all image
 
         '''
@@ -49,7 +57,7 @@ class Panorama():
         for im in self.images:
             width += im.shape[1]
 
-        cnv_shp = (img1_shp[0]+padding,width,img1_shp[2])
+        cnv_shp = (img1_shp[0]+bottom_pad,width,img1_shp[2])
         canvas = np.zeros(cnv_shp,np.uint8) 
 
         # print(canvas.shape,(self.y_originshift+img1_shp[0],self.x_originshift+img1_shp[1] ))
@@ -119,50 +127,56 @@ class Panorama():
 
         return (kp1, kp2), best_n
 
-    def createPanaroma(self, padding = 100):
+    def createPanaroma(self,show_output=True, save_path=None):
 
-        canvas = self.createCanvas(padding = padding)
-        (kp1, kp2), best_n = self.findSIFTfeatures(self.bw_images[0],self.bw_images[1])
-
-        img1_pts = np.float32([kp1[val.queryIdx].pt for val in best_n]).reshape(-1,1,2)
-        img2_pts = np.float32([kp2[val.trainIdx].pt for val in best_n]).reshape(-1,1,2)
-        
-        H,mask = cv2.findHomography(img2_pts,img1_pts,cv2.RANSAC)
+        canvas = self.createCanvas(self.bottom_pad)
+        img3 = self.bw_images[0].copy()
         T = np.array(   [[ 1 , 0 , self.x_originshift],
                         [ 0 , 1 , self.y_originshift],
                         [ 0 , 0 , 1]])
-                    
-        translatedH = np.matmul(T,H)
-        
-        img3 = cv2.warpPerspective(self.images[1],translatedH,(canvas.shape[1],canvas.shape[0]))
- 
-        canvas = self.image_stitch(canvas,img3)
-        can_r, can_c = canvas.shape[0], canvas.shape[1]
+        for i in range(len(self.images)-1):
+        # i = 0
+            img1 = img3
+            (kp1, kp2), best_n = self.findSIFTfeatures(img1,self.bw_images[i+1])
 
-        if self.save_path is not None:  
-            if not os.path.exists(self.save_path):
-                os.mkdir(self.save_path)
-                print(f'Folder created at {self.save_path}')
+            img1_pts = np.float32([kp1[val.queryIdx].pt for val in best_n]).reshape(-1,1,2)
+            img2_pts = np.float32([kp2[val.trainIdx].pt for val in best_n]).reshape(-1,1,2)
+            
+            H,mask = cv2.findHomography(img2_pts,img1_pts,cv2.RANSAC)
+            
+            translatedH = np.matmul(T,H)
+            T = np.eye(3)
+            img3 = cv2.warpPerspective(self.images[i+1],translatedH,
+                                        (canvas.shape[1],canvas.shape[0])   )    
+            canvas = self.image_stitch(canvas,img3)
+        
+        if save_path is not None:  
+            if not os.path.exists(save_path):
+                os.mkdir(save_path)
+                print(f'Folder created at {save_path}')
             
             folder = self.image_folder.split('/')[-1]   
-            save_img_name = os.path.join(self.save_path,f'{folder}_panaroma.jpg')      
+            save_img_name = os.path.join(save_path,f'{folder}_panaroma.jpg')      
             cv2.imwrite(save_img_name, canvas)
             print(f'Image Saved at {save_img_name}')
         
-        print('Panaroma Created!! ')
-        cv2.imshow('Uncropped Panorama Canvas', canvas)
+        if show_output:
+            cv2.namedWindow('Panorama Canvas', cv2.WINDOW_NORMAL)
+            cv2.imshow('Panorama Canvas', canvas)
 
         # Start from bottom and keep looking for zeros from bottom and crop. 
-        y_bottom = can_r-padding 
-        for y_val in range(can_r-1,can_r-padding, -1):
-            if not (canvas[y_val, 0] == [0,0,0]).all():
-                y_bottom = y_val
-                break
-        for x_val in range(can_c-1,0, -1):
-            if not (canvas[0,x_val] == [0,0,0]).all():
-                x_bottom = x_val
-                break
-        canvas_crop = canvas[0:y_val, 0:x_val]
+
+        # can_r, can_c = canvas.shape[0], canvas.shape[1]
+        # y_bottom = can_r-bottom_pad 
+        # for y_val in range(can_r-1,can_r-bottom_pad, -1):
+        #     if not (canvas[y_val, 0] == [0,0,0]).all():
+        #         y_bottom = y_val
+        #         break
+        # for x_val in range(can_c-1,0, -1):
+        #     if not (canvas[0,x_val] == [0,0,0]).all():
+        #         x_bottom = x_val
+        #         break
+        # canvas_crop = canvas[0:y_val, 0:x_val]
         
         cv2.waitKey(0)
 
@@ -232,14 +246,25 @@ class Panorama():
 
 if __name__ == '__main__':
 
-    images_dir = 'test_images/panorama_img/set11'
-    save_dir = 'test_images/panorama_img/results'
+    ############# Run for a single set #############
 
-    pan = Panorama(images_dir, save_path=save_dir, 
-                x_originshift=500, y_originshift=20, show_imgs=False)
-    pan.createPanaroma()
+    # root = 'test_images/panorama_img/set3'
+    # save_dir = 'test_images/stitched_results'
 
-    # img1 = cv2.imread('panorama_img/set1/1.jpeg',0)
-    # img2 = cv2.imread('panorama_img/set1/2.jpeg',0)
-    # pan.findSIFTfeatures(img1,img2, show_match=True)
+    # pan = Panorama(root, show_imgs=False,
+    #             x_originshift=500, y_originshift=0, bottom_pad = 300 )
+    # pan.createPanaroma(show_output=True,save_path=None)
+
+    ############### Run for all sets ###############
+
+    root = 'test_images/panorama_img/'
+    save_dir = 'test_images/stitched_results'
+
+    for image_folder in os.listdir(root):
+        print(f'\nCurrently testing {image_folder}')
+        pan = Panorama(os.path.join(root,image_folder), show_imgs=False,
+                    x_originshift=400, y_originshift=250, bottom_pad = 900 )
+        pan.createPanaroma(show_output=False, save_path=save_dir)
+
+
     
