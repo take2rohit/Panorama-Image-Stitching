@@ -5,7 +5,7 @@ from scipy import signal
 
 class HarrisDetector():
 
-    def __init__(self ,path, resizer=True):
+    def __init__(self, path, resizer=True):
 
         '''
         Parameters:
@@ -19,10 +19,10 @@ class HarrisDetector():
         self.im_bw = cv2.cvtColor(self.im,cv2.COLOR_BGR2GRAY) 
         
 
-    def sobel(self,custom_im=None, disp=False):
+    def sobel(self, custom_im=None, disp=False):
 
         '''
-        Calucalte derivative of the image using sobel operator.
+        Calculalte derivative of the image using sobel operator.
 
             Parameters
                 custom_im : input a different numpy image. 
@@ -57,7 +57,7 @@ class HarrisDetector():
         return x_grad, y_grad
 
 
-    def findCorners(self,k=0.005,thresh_ratio=0.4, disp=False):
+    def findCorners(self, nms_threshold=20, k=0.005, thresh_ratio=0.4, disp=False):
 
         '''
         Find corners using Harris detector
@@ -99,6 +99,7 @@ class HarrisDetector():
         R_image[R_image < max_R] = 0
 
         corner_r, corner_c = np.nonzero(R_image)
+        corner_r, corner_c = self.nms(corner_r, corner_c, nms_threshold)
 
         for r, c in zip(corner_r, corner_c):         
             cv2.circle(self.im, (c,r), 5, (255,0,255), thickness=2)
@@ -109,13 +110,46 @@ class HarrisDetector():
             cv2.namedWindow('R image thresholded', cv2.WINDOW_NORMAL)
             cv2.namedWindow('Final Image', cv2.WINDOW_NORMAL)
 
-            cv2.imshow('R image thresholded',R_image.astype(np.uint8))
-            cv2.imshow('Threshold image',self.im)
+            cv2.imshow('R image thresholded', R_image.astype(np.uint8))
+            cv2.imshow('Threshold image', self.im)
 
             cv2.waitKey(0)
         
 
+    def nms(self, r, c, distThresh):
+        
+        '''
+        Removes points that are closer than DistThresh in L1 space 
+
+            Parameters:
+                r, c: Row, Column points
+                distThresh: distance threshold to discard points in proximity. 
+        '''
+
+        if len(r) == 0:
+            return []
+        if r.dtype.kind == "i":
+            r = r.astype("float")
+        if c.dtype.kind == "i":
+            c = c.astype("float")
+
+        pick = []
+
+        idxs = np.argsort(c)
+        while len(idxs) > 0:
+            last = len(idxs) - 1
+            i = idxs[last]
+            pick.append(i)
+
+            p1_r, p1_c = r[idxs[:last]], c[idxs[:last]]
+            p2_r, p2_c = r[i], c[i]
+            dist = abs(p2_r - p1_r) + abs(p2_c - p1_c)
+
+            idxs = np.delete(idxs, np.concatenate(([last], np.where(dist < distThresh)[0])))
+        return r[pick].astype("int"), c[pick].astype("int")
+        
+
 if __name__=='__main__':
 
-    Harris = HarrisDetector('test_images/harris_img',resizer=True)
-    Harris.findCorners(thresh_ratio=0.3, disp=True)
+    Harris = HarrisDetector('test_images/harris_img/chess.jpg',resizer=True)
+    Harris.findCorners(thresh_ratio=0.3, nms_threshold=20, disp=True)
