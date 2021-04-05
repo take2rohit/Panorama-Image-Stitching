@@ -33,6 +33,9 @@ class Panorama():
         img_path = sorted(glob.glob(os.path.join(self.image_folder,'*')))
         self.images = [cv2.imread(p) for p in img_path]
         self.bw_images = [cv2.imread(p,0) for p in img_path]
+        order = self.find_best_matches()
+        self.images = [self.images[i] for i in order]
+        self.bw_images = [self.bw_images[i] for i in order]
 
         if show_imgs:
             for c, img in enumerate(self.images):
@@ -232,9 +235,8 @@ class Panorama():
                     best_idx_nums = num_matches
                     best_idx = j
             pairs.append([i, best_idx])
-        print('Original connections:', pairs)
         link = self.find_link(pairs)
-        print('Link:', link)
+        return link
 
     def find_link(self, connections):
         def op(ip):
@@ -286,6 +288,5 @@ if __name__ == '__main__':
     #     pan = Panorama(os.path.join(root,image_folder), show_imgs=False,
     #                 y_originshift=250, bottom_pad = 900 )
     #     pan.createPanaroma(show_output=True, save_path=None)
-
 
     
