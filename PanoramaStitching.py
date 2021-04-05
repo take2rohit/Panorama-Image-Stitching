@@ -5,7 +5,7 @@ import os, glob
 class Panorama():
 
     def __init__(self,image_folder, show_imgs=False,
-                x_originshift=0, y_originshift=0,bottom_pad=100):
+                 y_originshift=0,bottom_pad=100):
 
         '''
         Parameters:
@@ -27,7 +27,7 @@ class Panorama():
             bottom_pad : Add black padding to the bottom of canvas 
         '''
         
-        self.x_originshift, self.y_originshift = x_originshift, y_originshift
+        self.x_originshift, self.y_originshift = 0, y_originshift
         self.bottom_pad = bottom_pad
         self.image_folder = image_folder
         img_path = sorted(glob.glob(os.path.join(self.image_folder,'*')))
@@ -56,8 +56,12 @@ class Panorama():
         width = 0
         for im in self.images:
             width += im.shape[1]
-
+        width *= 2 
+        
         cnv_shp = (img1_shp[0]+bottom_pad,width,img1_shp[2])
+
+        self.x_originshift =  width//2
+
         canvas = np.zeros(cnv_shp,np.uint8) 
 
         # print(canvas.shape,(self.y_originshift+img1_shp[0],self.x_originshift+img1_shp[1] ))
@@ -74,18 +78,24 @@ class Panorama():
 
         return canvas
 
-    def image_stitch(self, img1,img2):
+    def image_stitch(self, canvas, img2,canvas_mask):
 
-        grayImg1 = cv2.cvtColor(img1,cv2.COLOR_BGR2GRAY)
+        graycanvas = cv2.cvtColor(canvas,cv2.COLOR_BGR2GRAY)
         grayImg2 = cv2.cvtColor(img2,cv2.COLOR_BGR2GRAY)
-        flg = np.array((grayImg1,grayImg2))
+        flg = np.array((graycanvas,grayImg2))
         idx = np.argmax(flg,axis=0)
         id1 = np.where(idx ==0)
         id2 = np.where(idx==1)
-        img = np.zeros_like(img1)
-        img[id1] = img1[id1]
+        img = np.zeros_like(canvas)
+        img[id1] = canvas[id1]
         img[id2] = img2[id2]
-        return  img
+        
+        # id1 = np.where(idx ==1)
+        # canvas_mask[id1] = 255
+        canvas_mask[id2] = 255       
+
+
+        return  img,canvas_mask
 
     def findSIFTfeatures(self,img1,img2, top_n=25, show_match=False):
 
@@ -127,9 +137,30 @@ class Panorama():
 
         return (kp1, kp2), best_n
 
+    def crop_canvas(self, canvas_mask,canvas):
+        # Start from bottom and keep looking for zeros from bottom and crop. 
+        
+        canvas_gr = cv2.cvtColor(canvas_mask,cv2.COLOR_BGR2GRAY)
+        ret,thresh = cv2.threshold(canvas_gr,127,255,0)
+        contours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+
+        if len(contours) != 0:
+            c = max(contours, key = cv2.contourArea)
+            x,y,w,h = cv2.boundingRect(c)
+        
+        # cv2.imshow('asf', canvas_mask)
+
+        max_visibile_im_canvas = canvas[y:y+h, x:x+w, :]
+
+        return max_visibile_im_canvas
+
+
     def createPanaroma(self,show_output=True, save_path=None):
 
         canvas = self.createCanvas(self.bottom_pad)
+        canvas_mask = np.zeros_like(canvas)
+
+        
         img3 = self.bw_images[0].copy()
         T = np.array(   [[ 1 , 0 , self.x_originshift],
                         [ 0 , 1 , self.y_originshift],
@@ -148,38 +179,29 @@ class Panorama():
             T = np.eye(3)
             img3 = cv2.warpPerspective(self.images[i+1],translatedH,
                                         (canvas.shape[1],canvas.shape[0])   )    
-            canvas = self.image_stitch(canvas,img3)
+
+            canvas, canvas_mask = self.image_stitch(canvas,img3,canvas_mask)
         
+        max_im_canvas = self.crop_canvas(canvas_mask,canvas)
+
         if save_path is not None:  
-            if not os.path.exists(save_path):
-                os.mkdir(save_path)
-                print(f'Folder created at {save_path}')
-            
-            folder = self.image_folder.split('/')[-1]   
-            save_img_name = os.path.join(save_path,f'{folder}_panaroma.jpg')      
-            cv2.imwrite(save_img_name, canvas)
-            print(f'Image Saved at {save_img_name}')
+            self.save_image_fn(save_path, canvas)
         
         if show_output:
-            cv2.namedWindow('Panorama Canvas', cv2.WINDOW_NORMAL)
-            cv2.imshow('Panorama Canvas', canvas)
+            cv2.namedWindow('Normal Rectangle Panorama', cv2.WINDOW_NORMAL)
+            cv2.imshow('Normal Rectangle Panorama', max_im_canvas)
 
-        # Start from bottom and keep looking for zeros from bottom and crop. 
-
-        # can_r, can_c = canvas.shape[0], canvas.shape[1]
-        # y_bottom = can_r-bottom_pad 
-        # for y_val in range(can_r-1,can_r-bottom_pad, -1):
-        #     if not (canvas[y_val, 0] == [0,0,0]).all():
-        #         y_bottom = y_val
-        #         break
-        # for x_val in range(can_c-1,0, -1):
-        #     if not (canvas[0,x_val] == [0,0,0]).all():
-        #         x_bottom = x_val
-        #         break
-        # canvas_crop = canvas[0:y_val, 0:x_val]
-        
         cv2.waitKey(0)
 
+    def save_image_fn(self, save_path, canvas):
+        if not os.path.exists(save_path):
+            os.mkdir(save_path)
+            print(f'Folder created at {save_path}')
+        
+        folder = self.image_folder.split('/')[-1]   
+        save_img_name = os.path.join(save_path,f'{folder}_panaroma.jpg')      
+        cv2.imwrite(save_img_name, canvas)
+        print(f'Image Saved at {save_img_name}')
 
     def find_num_matches(self, img1, img2):
         sift = cv2.SIFT_create()
@@ -197,7 +219,6 @@ class Panorama():
 
         return len(good_features)
 
-
     def find_best_matches(self):
         pairs = []
         for i in range(len(self.images)):
@@ -214,7 +235,6 @@ class Panorama():
         print('Original connections:', pairs)
         link = self.find_link(pairs)
         print('Link:', link)
-
 
     def find_link(self, connections):
         def op(ip):
@@ -248,23 +268,24 @@ if __name__ == '__main__':
 
     ############# Run for a single set #############
 
-    # root = 'test_images/panorama_img/set3'
-    # save_dir = 'test_images/stitched_results'
+    root = 'images/panorama_img/set3'
+    save_dir = 'images/stitched_results'
 
-    # pan = Panorama(root, show_imgs=False,
-    #             x_originshift=500, y_originshift=0, bottom_pad = 300 )
-    # pan.createPanaroma(show_output=True,save_path=None)
+    pan = Panorama(root, show_imgs=False,
+                 y_originshift=80, bottom_pad = 350 )
+
+    pan.createPanaroma(show_output=True,save_path=None)
 
     ############### Run for all sets ###############
 
-    root = 'images/panorama_img/'
-    save_dir = 'images/stitched_results'
+    # root = 'images/panorama_img/'
+    # save_dir = 'images/stitched_results'
 
-    for image_folder in os.listdir(root):
-        print(f'\nCurrently testing {image_folder}')
-        pan = Panorama(os.path.join(root,image_folder), show_imgs=False,
-                    x_originshift=400, y_originshift=250, bottom_pad = 900 )
-        pan.createPanaroma(show_output=False, save_path=save_dir)
+    # for image_folder in os.listdir(root):
+    #     print(f'\nCurrently testing {image_folder}')
+    #     pan = Panorama(os.path.join(root,image_folder), show_imgs=False,
+    #                 y_originshift=250, bottom_pad = 900 )
+    #     pan.createPanaroma(show_output=True, save_path=None)
 
 
     

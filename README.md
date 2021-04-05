@@ -24,4 +24,7 @@ Goal of this repo is to create a horizontal Panorama from a set of images.
 - **Rohit Lal** - [Website](http://take2rohit.github.io/)
 - **Khush Agrawal** - [Website](https://khush3.github.io/)
 
-  
+## References
+
+- https://www.youtube.com/watch?v=J1DwQzab6Jg&list=PL2zRqk16wsdp8KbDfHKvPYNGF2L-zQASc
+<!-- - https://stackoverflow.com/questions/10632617/how-to-remove-black-part-from-the-image -->
