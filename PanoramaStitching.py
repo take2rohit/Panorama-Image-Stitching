@@ -18,9 +18,6 @@ class Panorama():
 
             show_imgs : Show input images which are to be stitches
 
-            x_originshift : Shift first reference image of panorama 
-                            to particular x value in canvas
-
             y_originshift : Shift first reference image of panorama 
                             to particular y value in canvas
 
@@ -141,8 +138,7 @@ class Panorama():
         return (kp1, kp2), best_n
 
     def crop_canvas(self, canvas_mask,canvas):
-        # Start from bottom and keep looking for zeros from bottom and crop. 
-        
+        .
         canvas_gr = cv2.cvtColor(canvas_mask,cv2.COLOR_BGR2GRAY)
         ret,thresh = cv2.threshold(canvas_gr,127,255,0)
         contours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
@@ -151,12 +147,10 @@ class Panorama():
             c = max(contours, key = cv2.contourArea)
             x,y,w,h = cv2.boundingRect(c)
         
-        # cv2.imshow('asf', canvas_mask)
 
         max_visibile_im_canvas = canvas[y:y+h, x:x+w, :]
 
         return max_visibile_im_canvas
-
 
     def createPanaroma(self,show_output=True, save_path=None):
 
@@ -188,7 +182,7 @@ class Panorama():
         max_im_canvas = self.crop_canvas(canvas_mask,canvas)
 
         if save_path is not None:  
-            self.save_image_fn(save_path, canvas)
+            self.save_image_fn(save_path, max_im_canvas)
         
         if show_output:
             cv2.namedWindow('Normal Rectangle Panorama', cv2.WINDOW_NORMAL)
@@ -270,23 +264,23 @@ if __name__ == '__main__':
 
     ############# Run for a single set #############
 
-    root = 'images/panorama_img/set3'
-    save_dir = 'images/stitched_results'
+    # root = 'images/panorama_img/set3'
+    # save_dir = 'images/stitched_results'
 
-    pan = Panorama(root, show_imgs=False,
-                 y_originshift=80, bottom_pad = 350 )
+    # pan = Panorama(root, show_imgs=False,
+    #              y_originshift=80, bottom_pad = 350 )
 
-    pan.createPanaroma(show_output=True,save_path=None)
+    # pan.createPanaroma(show_output=True,save_path=None)
 
     ############### Run for all sets ###############
 
-    # root = 'images/panorama_img/'
-    # save_dir = 'images/stitched_results'
+    root = 'images/panorama_img/'
+    save_dir = 'images/stitched_results'
 
-    # for image_folder in os.listdir(root):
-    #     print(f'\nCurrently testing {image_folder}')
-    #     pan = Panorama(os.path.join(root,image_folder), show_imgs=False,
-    #                 y_originshift=250, bottom_pad = 900 )
-    #     pan.createPanaroma(show_output=True, save_path=None)
+    for image_folder in os.listdir(root):
+        print(f'\nCurrently testing {image_folder}')
+        pan = Panorama(os.path.join(root,image_folder), show_imgs=False,
+                    y_originshift=250, bottom_pad = 900 )
+        pan.createPanaroma(show_output=False, save_path=save_dir)
 
     

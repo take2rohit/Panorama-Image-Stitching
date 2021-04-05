@@ -11,13 +11,14 @@ Goal of this repo is to create a horizontal Panorama from a set of images.
 
 ### For Panorama Stitching
 
-- [x] Implement Basic Image stitching for any number of images using OpenCV functions
+- [ ] Implement Basic Image stitching for any number of images using OpenCV functions
   - [x] `Features`: Inbuilt SIFT features + SIFT descriptors 
   - [x] `Homography`: RANSAC (inbuilt)
   - [ ] `Blending`: Weighted transformed images
   - [ ] `Features`: Compare with Harris features and SIFT features
-- [ ] Crop the final panorama image
-- [ ] Try to make a better canvas length and breadth
+- [ ] Crop panorama image
+  - [x] Lossless cropping of black region without loosing image info
+  - [ ] Lossy cropping of image with loosing some part of image 
 
 ## Contributers
 
