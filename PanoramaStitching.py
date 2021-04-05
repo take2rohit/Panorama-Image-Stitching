@@ -33,6 +33,9 @@ class Panorama():
         img_path = sorted(glob.glob(os.path.join(self.image_folder,'*')))
         self.images = [cv2.imread(p) for p in img_path]
         self.bw_images = [cv2.imread(p,0) for p in img_path]
+        order = self.find_best_matches()
+        self.images = [self.images[i] for i in order]
+        self.bw_images = [self.bw_images[i] for i in order]
 
         if show_imgs:
             for c, img in enumerate(self.images):
@@ -211,9 +214,8 @@ class Panorama():
                     best_idx_nums = num_matches
                     best_idx = j
             pairs.append([i, best_idx])
-        print('Original connections:', pairs)
         link = self.find_link(pairs)
-        print('Link:', link)
+        return link
 
 
     def find_link(self, connections):
@@ -248,23 +250,23 @@ if __name__ == '__main__':
 
     ############# Run for a single set #############
 
-    # root = 'test_images/panorama_img/set3'
-    # save_dir = 'test_images/stitched_results'
+    root = 'images/panorama_img/set22'
+    save_dir = 'images/stitched_results'
 
-    # pan = Panorama(root, show_imgs=False,
-    #             x_originshift=500, y_originshift=0, bottom_pad = 300 )
-    # pan.createPanaroma(show_output=True,save_path=None)
+    pan = Panorama(root, show_imgs=False,
+                x_originshift=1400, y_originshift=1250, bottom_pad=1900 )
+    pan.createPanaroma(show_output=True,save_path=None)
 
     ############### Run for all sets ###############
 
-    root = 'images/panorama_img/'
-    save_dir = 'images/stitched_results'
+    # root = 'images/panorama_img/'
+    # save_dir = 'images/stitched_results'
 
-    for image_folder in os.listdir(root):
-        print(f'\nCurrently testing {image_folder}')
-        pan = Panorama(os.path.join(root,image_folder), show_imgs=False,
-                    x_originshift=400, y_originshift=250, bottom_pad = 900 )
-        pan.createPanaroma(show_output=False, save_path=save_dir)
+    # for image_folder in os.listdir(root):
+    #     print(f'\nCurrently testing {image_folder}')
+    #     pan = Panorama(os.path.join(root,image_folder), show_imgs=False,
+    #                 x_originshift=400, y_originshift=250, bottom_pad = 900 )
+    #     pan.createPanaroma(show_output=True, save_path=save_dir)
 
 
     
