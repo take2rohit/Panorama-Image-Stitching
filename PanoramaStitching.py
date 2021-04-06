@@ -4,7 +4,7 @@ import os, glob
 
 class Panorama():
 
-    def __init__(self,image_folder, show_imgs=False,
+    def __init__(self,image_folder, show_imgs=False, random_order=True,
                  y_originshift=0,bottom_pad=100):
 
         '''
@@ -22,6 +22,9 @@ class Panorama():
                             to particular y value in canvas
 
             bottom_pad : Add black padding to the bottom of canvas 
+
+            random_order : Specify if the images are random or sequential
+                           (Left to Right) or (Right to Left)
         '''
         
         self.x_originshift, self.y_originshift = 0, y_originshift
@@ -30,9 +33,11 @@ class Panorama():
         img_path = sorted(glob.glob(os.path.join(self.image_folder,'*')))
         self.images = [cv2.imread(p) for p in img_path]
         self.bw_images = [cv2.imread(p,0) for p in img_path]
-        order = self.find_best_matches()
-        self.images = [self.images[i] for i in order]
-        self.bw_images = [self.bw_images[i] for i in order]
+        
+        if random_order:
+            order = self.find_best_matches()
+            self.images = [self.images[i] for i in order]
+            self.bw_images = [self.bw_images[i] for i in order]
 
         if show_imgs:
             for c, img in enumerate(self.images):
@@ -63,7 +68,7 @@ class Panorama():
         self.x_originshift =  width//2
 
         canvas = np.zeros(cnv_shp,np.uint8) 
-
+        canvas_mask = np.zeros_like(canvas)
         # print(canvas.shape,(self.y_originshift+img1_shp[0],self.x_originshift+img1_shp[1] ))
 
         if self.y_originshift+img1_shp[0] > canvas.shape[0]:
@@ -75,10 +80,13 @@ class Panorama():
 
         canvas[self.y_originshift:self.y_originshift+img1_shp[0],
             self.x_originshift:self.x_originshift+img1_shp[1]] = self.images[0]
+        
+        canvas_mask[self.y_originshift:self.y_originshift+img1_shp[0],
+            self.x_originshift:self.x_originshift+img1_shp[1]] = 255
 
-        return canvas
+        return canvas,canvas_mask
 
-    def image_stitch(self, canvas, img2,canvas_mask):
+    def image_blend(self, canvas, img2,canvas_mask):
 
         graycanvas = cv2.cvtColor(canvas,cv2.COLOR_BGR2GRAY)
         grayImg2 = cv2.cvtColor(img2,cv2.COLOR_BGR2GRAY)
@@ -90,10 +98,7 @@ class Panorama():
         img[id1] = canvas[id1]
         img[id2] = img2[id2]
         
-        # id1 = np.where(idx ==1)
-        # canvas_mask[id1] = 255
         canvas_mask[id2] = 255       
-
 
         return  img,canvas_mask
 
@@ -138,7 +143,8 @@ class Panorama():
         return (kp1, kp2), best_n
 
     def crop_canvas(self, canvas_mask,canvas):
-        .
+        # cv2.imshow('ncv' , canvas_mask)
+
         canvas_gr = cv2.cvtColor(canvas_mask,cv2.COLOR_BGR2GRAY)
         ret,thresh = cv2.threshold(canvas_gr,127,255,0)
         contours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
@@ -146,16 +152,15 @@ class Panorama():
         if len(contours) != 0:
             c = max(contours, key = cv2.contourArea)
             x,y,w,h = cv2.boundingRect(c)
-        
 
+        # cv2.rectangle(canvas,(x,y),(x+w,y+h),(0,255,0),2)
         max_visibile_im_canvas = canvas[y:y+h, x:x+w, :]
 
         return max_visibile_im_canvas
 
     def createPanaroma(self,show_output=True, save_path=None):
 
-        canvas = self.createCanvas(self.bottom_pad)
-        canvas_mask = np.zeros_like(canvas)
+        canvas, canvas_mask = self.createCanvas(self.bottom_pad)
 
         
         img3 = self.bw_images[0].copy()
@@ -177,7 +182,7 @@ class Panorama():
             img3 = cv2.warpPerspective(self.images[i+1],translatedH,
                                         (canvas.shape[1],canvas.shape[0])   )    
 
-            canvas, canvas_mask = self.image_stitch(canvas,img3,canvas_mask)
+            canvas, canvas_mask = self.image_blend(canvas,img3,canvas_mask)
         
         max_im_canvas = self.crop_canvas(canvas_mask,canvas)
 
@@ -187,10 +192,11 @@ class Panorama():
         if show_output:
             cv2.namedWindow('Normal Rectangle Panorama', cv2.WINDOW_NORMAL)
             cv2.imshow('Normal Rectangle Panorama', max_im_canvas)
-
+            
         cv2.waitKey(0)
 
     def save_image_fn(self, save_path, canvas):
+        
         if not os.path.exists(save_path):
             os.mkdir(save_path)
             print(f'Folder created at {save_path}')
@@ -280,7 +286,8 @@ if __name__ == '__main__':
     for image_folder in os.listdir(root):
         print(f'\nCurrently testing {image_folder}')
         pan = Panorama(os.path.join(root,image_folder), show_imgs=False,
-                    y_originshift=250, bottom_pad = 900 )
+                    y_originshift=250, bottom_pad = 900,random_order=True )
+
         pan.createPanaroma(show_output=False, save_path=save_dir)
 
     
