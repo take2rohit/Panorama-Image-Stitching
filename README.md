@@ -20,6 +20,13 @@ Goal of this repo is to create a horizontal Panorama from a set of images.
   - [x] Lossless cropping of black region without loosing image info
   - [ ] Lossy cropping of image with loosing some part of image 
 
+## Scope for Optimization
+
+- [ ] Faster searching for finding sequential images
+- [ ] Automatic canvas shape detection
+- [ ] Storing previous values H calculated and updating
+- [ ] Storing and using harris and sift feature instead of re-computing
+
 ## Contributers
 
 - **Rohit Lal** - [Website](http://take2rohit.github.io/)

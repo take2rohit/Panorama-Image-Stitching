@@ -35,9 +35,11 @@ class Panorama():
         self.bw_images = [cv2.imread(p,0) for p in img_path]
         
         if random_order:
-            order = self.find_best_matches()
-            self.images = [self.images[i] for i in order]
-            self.bw_images = [self.bw_images[i] for i in order]
+            print('Computing image sequence...')
+            self.order = self.find_best_matches()
+            self.images = [self.images[i] for i in self.order]
+            self.bw_images = [self.bw_images[i] for i in self.order]
+            print('Completed Finding image sequence!')
 
         if show_imgs:
             for c, img in enumerate(self.images):
@@ -69,7 +71,6 @@ class Panorama():
 
         canvas = np.zeros(cnv_shp,np.uint8) 
         canvas_mask = np.zeros_like(canvas)
-        # print(canvas.shape,(self.y_originshift+img1_shp[0],self.x_originshift+img1_shp[1] ))
 
         if self.y_originshift+img1_shp[0] > canvas.shape[0]:
             raise Exception(f"x_originshift should be less than {canvas.shape[0]-img1_shp[0]}")
@@ -160,6 +161,16 @@ class Panorama():
 
         return max_visibile_im_canvas
 
+    def sequential_matmal(self,H_vals):
+        
+        H = H_vals[0]
+        
+        if len(H_vals) > 1 :
+            for i in range(len(H_vals)-1):
+                H = np.matmul(H,H_vals[i+1])
+        
+        return H
+        
     def createPanaroma(self, show_output=False, save_path=None):
 
         canvas, canvas_mask = self.createCanvas(self.bottom_pad)
@@ -169,22 +180,29 @@ class Panorama():
         T = np.array(   [[ 1 , 0 , self.x_originshift],
                         [ 0 , 1 , self.y_originshift],
                         [ 0 , 0 , 1]])
+        H_vals = []
+
         for i in range(len(self.images)-1):
             img1 = img3
-            (kp1, kp2), best_n = self.findSIFTfeatures(img1,self.bw_images[i+1])
-
+            (kp1, kp2), best_n = self.findSIFTfeatures(self.bw_images[i],self.bw_images[i+1])
+            
             img1_pts = np.float32([kp1[val.queryIdx].pt for val in best_n]).reshape(-1,1,2)
             img2_pts = np.float32([kp2[val.trainIdx].pt for val in best_n]).reshape(-1,1,2)
-            
+
             H,mask = cv2.findHomography(img2_pts,img1_pts,cv2.RANSAC)
+            H = np.array(H)
+            H_vals.append(H)
+            
+            H = self.sequential_matmal(H_vals)
             
             translatedH = np.matmul(T,H)
-            T = np.eye(3)
+            
+            # T = np.eye(3)
             img3 = cv2.warpPerspective(self.images[i+1],translatedH,
                                         (canvas.shape[1],canvas.shape[0])   )    
 
             canvas, canvas_mask = self.image_blend(canvas,img3,canvas_mask)
-        
+
         max_im_canvas = self.crop_canvas(canvas_mask,canvas)
 
         if save_path is not None:  
@@ -257,7 +275,6 @@ class Panorama():
         link = self.find_link(pairs)
         return link
 
-
     def find_link(self, connections):
         def op(ip):
             if ip == 0:
@@ -290,24 +307,24 @@ if __name__ == '__main__':
 
     ############# Run for a single set #############
 
-    root = 'images/panorama_img/set3'
-    save_dir = 'images/stitched_results'
+    # root = 'images/panorama_img/set3'
+    # save_dir = 'images/stitched_results'
 
-    pan = Panorama(root, show_imgs=False,
-                 y_originshift=80, bottom_pad=350, random_order=True)
-
-    pan.createPanaroma(show_output=True,save_path=None)
+    # pan = Panorama(root, show_imgs=True,
+    #              y_originshift=80, bottom_pad=350, random_order=True)
+    # print(pan.order)
+    # pan.createPanaroma(show_output=True,save_path=None)
 
     ############### Run for all sets ###############
 
-    # root = 'images/panorama_img/'
-    # save_dir = 'images/stitched_results'
+    root = 'images/panorama_img/'
+    save_dir = 'images/stitched_results'
 
-    # for image_folder in os.listdir(root):
-    #     print(f'\nCurrently testing {image_folder}')
-    #     pan = Panorama(os.path.join(root,image_folder), show_imgs=False,
-    #                 y_originshift=250, bottom_pad=900, random_order=True)
+    for image_folder in os.listdir(root):
+        print(f'\nCurrently testing {image_folder}')
+        pan = Panorama(os.path.join(root,image_folder), show_imgs=False,
+                    y_originshift=250, bottom_pad=900, random_order=True)
 
-    #     pan.createPanaroma(show_output=True, save_path=save_dir)
+        pan.createPanaroma(show_output=False, save_path=save_dir)
 
     
