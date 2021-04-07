@@ -203,18 +203,40 @@ class Panorama():
 
     def find_best_matches(self):
         pairs = []
+        pairs_num_correspondences = []
         for i in range(len(self.images)):
             best_idx = -1
             best_idx_nums = 0
+            second_best_idx = -1
+            second_best_idx_nums = 0
             for j in range(len(self.images)):
                 if j == i:
                     continue
                 num_matches = self.find_num_matches(self.bw_images[i], self.bw_images[j])
-                if num_matches > best_idx_nums:
-                    best_idx_nums = num_matches
-                    best_idx = j
+                if num_matches >= second_best_idx_nums:
+                    if num_matches >= best_idx_nums:
+                        best_idx_nums = num_matches
+                        best_idx = j
+                    else:
+                        second_best_idx_nums = num_matches
+                        second_best_idx = j
+                print(i, j, num_matches)
             pairs.append([i, best_idx])
+            pairs_num_correspondences.append(best_idx_nums)
+            pairs.append([i, second_best_idx])
+            pairs_num_correspondences.append(second_best_idx_nums)
+        print(pairs_num_correspondences)
+        print(pairs)
+        worst_idx = np.argmin(pairs_num_correspondences)
+        del pairs_num_correspondences[worst_idx]
+        del pairs[worst_idx]
+        worst_idx = np.argmin(pairs_num_correspondences)
+        del pairs_num_correspondences[worst_idx]
+        del pairs[worst_idx]
+        print(pairs_num_correspondences)
+        print(pairs)
         link = self.find_link(pairs)
+        print(link)
         return link
 
 
@@ -226,7 +248,8 @@ class Panorama():
         c = connections.copy()
         link = [c[0][0], c[0][1]]
         del c[0]
-        while len(link) < len(connections):
+        while len(link) < len(connections) - 2:
+            # print(len(link), len(connections), connections, 'ss', link, 'ss', c)
             leaf = link[0]
             x, y = np.where(np.array(c) == leaf)
             if len(x) > 0:
