@@ -4,7 +4,7 @@ import os, glob
 
 class Panorama():
 
-    def __init__(self,image_folder, show_imgs=False, random_order=True,
+    def __init__(self, image_folder, show_imgs=False, random_order=False,
                  y_originshift=0,bottom_pad=100):
 
         '''
@@ -102,7 +102,7 @@ class Panorama():
 
         return  img,canvas_mask
 
-    def findSIFTfeatures(self,img1,img2, top_n=25, show_match=False):
+    def findSIFTfeatures(self, img1, img2, top_n=25, show_match=False):
 
         '''
         Find good features to match using SIFT
@@ -120,8 +120,8 @@ class Panorama():
     
         sift = cv2.SIFT_create()
 
-        kp1, des1 = sift.detectAndCompute(img1,None)
-        kp2, des2 = sift.detectAndCompute(img2,None)
+        kp1, des1 = sift.detectAndCompute(img1, None)
+        kp2, des2 = sift.detectAndCompute(img2, None)
         # BFMatcher with default params
         bf = cv2.BFMatcher()
         matches = bf.knnMatch(des1,des2,k=2)
@@ -138,11 +138,13 @@ class Panorama():
             best_n_plot = [[m] for m in best_n]
             match_pt_img = cv2.drawMatchesKnn(img1,kp1,img2,kp2,best_n_plot,None,
                             flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+            cv2.namedWindow('SIFT matched images', cv2.WINDOW_NORMAL)
             cv2.imshow('SIFT matched images', match_pt_img)
+            cv2.waitKey(0)
 
         return (kp1, kp2), best_n
 
-    def crop_canvas(self, canvas_mask,canvas):
+    def crop_canvas(self, canvas_mask, canvas):
         # cv2.imshow('ncv' , canvas_mask)
 
         canvas_gr = cv2.cvtColor(canvas_mask,cv2.COLOR_BGR2GRAY)
@@ -158,7 +160,7 @@ class Panorama():
 
         return max_visibile_im_canvas
 
-    def createPanaroma(self,show_output=True, save_path=None):
+    def createPanaroma(self, show_output=False, save_path=None):
 
         canvas, canvas_mask = self.createCanvas(self.bottom_pad)
 
@@ -168,7 +170,6 @@ class Panorama():
                         [ 0 , 1 , self.y_originshift],
                         [ 0 , 0 , 1]])
         for i in range(len(self.images)-1):
-        # i = 0
             img1 = img3
             (kp1, kp2), best_n = self.findSIFTfeatures(img1,self.bw_images[i+1])
 
@@ -236,29 +237,26 @@ class Panorama():
                 num_matches = self.find_num_matches(self.bw_images[i], self.bw_images[j])
                 if num_matches >= second_best_idx_nums:
                     if num_matches >= best_idx_nums:
+                        second_best_idx_nums = best_idx_nums
+                        second_best_idx = best_idx
                         best_idx_nums = num_matches
                         best_idx = j
                     else:
                         second_best_idx_nums = num_matches
                         second_best_idx = j
-                print(i, j, num_matches)
             pairs.append([i, best_idx])
             pairs_num_correspondences.append(best_idx_nums)
             pairs.append([i, second_best_idx])
             pairs_num_correspondences.append(second_best_idx_nums)
-        print(pairs_num_correspondences)
-        print(pairs)
         worst_idx = np.argmin(pairs_num_correspondences)
         del pairs_num_correspondences[worst_idx]
         del pairs[worst_idx]
         worst_idx = np.argmin(pairs_num_correspondences)
         del pairs_num_correspondences[worst_idx]
         del pairs[worst_idx]
-        print(pairs_num_correspondences)
-        print(pairs)
         link = self.find_link(pairs)
-        print(link)
         return link
+
 
     def find_link(self, connections):
         def op(ip):
@@ -268,8 +266,7 @@ class Panorama():
         c = connections.copy()
         link = [c[0][0], c[0][1]]
         del c[0]
-        while len(link) < len(connections) - 2:
-            # print(len(link), len(connections), connections, 'ss', link, 'ss', c)
+        while len(link) < int((len(connections)+2)/2):
             leaf = link[0]
             x, y = np.where(np.array(c) == leaf)
             if len(x) > 0:
@@ -293,24 +290,24 @@ if __name__ == '__main__':
 
     ############# Run for a single set #############
 
-    # root = 'images/panorama_img/set3'
-    # save_dir = 'images/stitched_results'
+    root = 'images/panorama_img/set3'
+    save_dir = 'images/stitched_results'
 
-    # pan = Panorama(root, show_imgs=False,
-    #              y_originshift=80, bottom_pad = 350 )
+    pan = Panorama(root, show_imgs=False,
+                 y_originshift=80, bottom_pad=350, random_order=True)
 
-    # pan.createPanaroma(show_output=True,save_path=None)
+    pan.createPanaroma(show_output=True,save_path=None)
 
     ############### Run for all sets ###############
 
-    root = 'images/panorama_img/'
-    save_dir = 'images/stitched_results'
+    # root = 'images/panorama_img/'
+    # save_dir = 'images/stitched_results'
 
-    for image_folder in os.listdir(root):
-        print(f'\nCurrently testing {image_folder}')
-        pan = Panorama(os.path.join(root,image_folder), show_imgs=False,
-                    y_originshift=250, bottom_pad = 900,random_order=True )
+    # for image_folder in os.listdir(root):
+    #     print(f'\nCurrently testing {image_folder}')
+    #     pan = Panorama(os.path.join(root,image_folder), show_imgs=False,
+    #                 y_originshift=250, bottom_pad=900, random_order=True)
 
-        pan.createPanaroma(show_output=False, save_path=save_dir)
+    #     pan.createPanaroma(show_output=True, save_path=save_dir)
 
     
