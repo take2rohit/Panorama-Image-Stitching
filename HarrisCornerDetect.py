@@ -5,7 +5,7 @@ from scipy import signal
 
 class HarrisDetector():
 
-    def __init__(self, path, resizer=True):
+    def __init__(self, path, resizer=None):
 
         '''
         Parameters:
@@ -14,8 +14,8 @@ class HarrisDetector():
         '''
 
         self.im = cv2.imread(path)
-        if resizer:
-            self.im = cv2.resize(self.im, (400,400))
+        if resizer is not None:
+            self.im = cv2.resize(self.im, resizer)
         self.im_bw = cv2.cvtColor(self.im,cv2.COLOR_BGR2GRAY) 
         
 
@@ -78,21 +78,19 @@ class HarrisDetector():
         Iyy = y_grad * y_grad
         Ixy = x_grad * y_grad
 
-        R_image = np.zeros_like(blur,dtype=np.float32)
+        sum_kernel = np.ones((9,9)) 
         
-        for i in range(h-10):
-            for j in range(w-10):
-                Ixx_window_sum = np.sum(Ixx[i:i+10,j:j+10])
-                Ixy_window_sum = np.sum(Ixy[i:i+10,j:j+10])
-                Iyy_window_sum = np.sum(Iyy[i:i+10,j:j+10])
+        Ixx_window_sum = signal.correlate2d(Ixx.copy(),sum_kernel,mode='valid')
+        Ixy_window_sum = signal.correlate2d(Ixy.copy(),sum_kernel,mode='valid')
+        Iyy_window_sum = signal.correlate2d(Iyy.copy(),sum_kernel,mode='valid')
 
-                M = np.array( [ [Ixx_window_sum, Ixy_window_sum],
-                                [Ixy_window_sum, Iyy_window_sum] ] )
+        determinant = Ixx_window_sum * Iyy_window_sum - Ixy_window_sum * Ixy_window_sum
+        trace = Ixx_window_sum + Iyy_window_sum
 
-                R = np.linalg.det(M) - k * np.trace(M)**2  
-                R_image[i+5,j+5] =  R
+        R = determinant - k * trace * trace
 
-
+        R_image = np.pad(R, (4,4))
+        print(R_image.shape)
         max_R = np.max(R_image) * thresh_ratio
 
         R_image[R_image > max_R] = 255
@@ -101,10 +99,14 @@ class HarrisDetector():
         corner_r, corner_c = np.nonzero(R_image)
         corner_r, corner_c = self.nms(corner_r, corner_c, nms_threshold)
 
-        for r, c in zip(corner_r, corner_c):         
-            cv2.circle(self.im, (c,r), 5, (255,0,255), thickness=2)
+        corner_features_coor = [[r,c] for r, c in zip(corner_r, corner_c)] 
+
+        corner_features_coor = np.array(corner_features_coor)
 
         if disp:
+
+            for r, c in zip(corner_r, corner_c):         
+                cv2.circle(self.im, (c,r), 5, (255,0,255), thickness=2)
 
             print(f'total corner: {len(corner_r)}')
             cv2.namedWindow('R image thresholded', cv2.WINDOW_NORMAL)
@@ -115,7 +117,8 @@ class HarrisDetector():
 
             cv2.waitKey(0)
         
-
+        return corner_features_coor
+ 
     def nms(self, r, c, distThresh):
         
         '''
@@ -151,5 +154,5 @@ class HarrisDetector():
 
 if __name__=='__main__':
 
-    Harris = HarrisDetector('images/harris_img/chess.jpg',resizer=True)
+    Harris = HarrisDetector('images/harris_img/chess.jpg')
     Harris.findCorners(thresh_ratio=0.3, nms_threshold=20, disp=True)
