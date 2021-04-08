@@ -15,7 +15,8 @@ Goal of this repo is to create a horizontal Panorama from a set of images.
   - [x] `Features`: Inbuilt SIFT features + SIFT descriptors 
   - [x] `Homography`: RANSAC (inbuilt)
   - [ ] `Blending`: Weighted transformed images
-  - [ ] `Features`: Compare with Harris features and SIFT features
+  - [x] `Features`: Compare with Harris features and SIFT features
+  
 - [ ] Crop panorama image
   - [x] Lossless cropping of black region without loosing image info
   - [ ] Lossy cropping of image with loosing some part of image 

@@ -5,15 +5,15 @@ from scipy import signal
 
 class HarrisDetector():
 
-    def __init__(self, path, resizer=None):
+    def __init__(self, im, resizer=None):
 
         '''
         Parameters:
-            path : Path of image
+            im : image (numpy array)
             resizer : Resize image to (400,400) for fast processing
         '''
 
-        self.im = cv2.imread(path)
+        self.im = im
         if resizer is not None:
             self.im = cv2.resize(self.im, resizer)
         self.im_bw = cv2.cvtColor(self.im,cv2.COLOR_BGR2GRAY) 
@@ -57,7 +57,7 @@ class HarrisDetector():
         return x_grad, y_grad
 
 
-    def findCorners(self, nms_threshold=20, k=0.005, thresh_ratio=0.4, disp=False):
+    def findCorners(self, nms_threshold=20, k=0.005, thresh_ratio=0.4, disp=False, kp_size=3):
 
         '''
         Find corners using Harris detector
@@ -89,8 +89,7 @@ class HarrisDetector():
 
         R = determinant - k * trace * trace
 
-        R_image = np.pad(R, (4,4))
-        print(R_image.shape)
+        R_image = np.pad(R, (1,4))
         max_R = np.max(R_image) * thresh_ratio
 
         R_image[R_image > max_R] = 255
@@ -99,16 +98,15 @@ class HarrisDetector():
         corner_r, corner_c = np.nonzero(R_image)
         corner_r, corner_c = self.nms(corner_r, corner_c, nms_threshold)
 
-        corner_features_coor = [[r,c] for r, c in zip(corner_r, corner_c)] 
-
-        corner_features_coor = np.array(corner_features_coor)
+        kp = []
+        for r,c in zip(corner_r, corner_c):
+            kp.append(cv2.KeyPoint(float(c),float(r),kp_size))
 
         if disp:
 
             for r, c in zip(corner_r, corner_c):         
                 cv2.circle(self.im, (c,r), 5, (255,0,255), thickness=2)
 
-            print(f'total corner: {len(corner_r)}')
             cv2.namedWindow('R image thresholded', cv2.WINDOW_NORMAL)
             cv2.namedWindow('Final Image', cv2.WINDOW_NORMAL)
 
@@ -117,7 +115,7 @@ class HarrisDetector():
 
             cv2.waitKey(0)
         
-        return corner_features_coor
+        return kp
  
     def nms(self, r, c, distThresh):
         
@@ -154,5 +152,6 @@ class HarrisDetector():
 
 if __name__=='__main__':
 
-    Harris = HarrisDetector('images/harris_img/chess.jpg')
+    im = cv2.imread('images/harris_img/chess.jpg')
+    Harris = HarrisDetector(im)
     Harris.findCorners(thresh_ratio=0.3, nms_threshold=20, disp=True)
