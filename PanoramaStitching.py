@@ -6,7 +6,7 @@ from HarrisCornerDetect import HarrisDetector
 class Panorama():
 
     def __init__(self, image_folder, show_imgs=False, random_order=False,
-                 feature_selector='HARRIS', y_originshift=0,bottom_pad=100):
+                 feature_selector='SIFT', y_originshift=0,bottom_pad=100):
 
         '''
         Parameters:
@@ -60,7 +60,7 @@ class Panorama():
             print(f'Folder created at {save_path}')
         
         folder = self.image_folder.split('/')[-1]   
-        save_img_name = os.path.join(save_path,f'{folder}_panaroma.jpg')      
+        save_img_name = os.path.join(save_path,f'{self.feature_selector}_{folder}_pan.jpg')      
         cv2.imwrite(save_img_name, canvas)
         print(f'Image Saved at {save_img_name}')
 
@@ -195,6 +195,32 @@ class Panorama():
 
         return  img,canvas_mask
 
+    def crop_canvas(self, canvas_mask, canvas):
+        # cv2.imshow('ncv' , canvas_mask)
+
+        canvas_gr = cv2.cvtColor(canvas_mask,cv2.COLOR_BGR2GRAY)
+        ret,thresh = cv2.threshold(canvas_gr,127,255,0)
+        contours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+
+        if len(contours) != 0:
+            c = max(contours, key = cv2.contourArea)
+            x,y,w,h = cv2.boundingRect(c)
+
+        # cv2.rectangle(canvas,(x,y),(x+w,y+h),(0,255,0),2)
+        max_visibile_im_canvas = canvas[y:y+h, x:x+w, :]
+
+        return max_visibile_im_canvas
+
+    def sequential_matmal(self,H_vals):
+        
+        H = H_vals[0]
+        
+        if len(H_vals) > 1 :
+            for i in range(len(H_vals)-1):
+                H = np.matmul(H,H_vals[i+1])
+        
+        return H
+
     def findSIFTfeatures(self, img1, img2, top_n=25, show_match=False):
 
         '''
@@ -238,32 +264,55 @@ class Panorama():
 
         return (kp1, kp2), best_n
 
-    def crop_canvas(self, canvas_mask, canvas):
-        # cv2.imshow('ncv' , canvas_mask)
+    def findHarrisfeatures(self, img1, img2, top_n=25, thresh_ratio = 0.001, show_match=False):
 
-        canvas_gr = cv2.cvtColor(canvas_mask,cv2.COLOR_BGR2GRAY)
-        ret,thresh = cv2.threshold(canvas_gr,127,255,0)
-        contours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+        '''
+        Find good features to match using SIFT
 
-        if len(contours) != 0:
-            c = max(contours, key = cv2.contourArea)
-            x,y,w,h = cv2.boundingRect(c)
-
-        # cv2.rectangle(canvas,(x,y),(x+w,y+h),(0,255,0),2)
-        max_visibile_im_canvas = canvas[y:y+h, x:x+w, :]
-
-        return max_visibile_im_canvas
-
-    def sequential_matmal(self,H_vals):
+        Parameters:
+            img1 : First numpy image
+            img2 : Second numpy image
+            top_n : State how many top n features needed (default - 25)
+            thresh_ratio : Higher thresh ratio more Harris corners
+            show_match : Display image of matching
         
-        H = H_vals[0]
+        Returns
+            (kp1, kp2) : Keypoints of img1 and img2 respectively
+            best_n : list of best n keypoints (default - 25)
+        '''
+
         
-        if len(H_vals) > 1 :
-            for i in range(len(H_vals)-1):
-                H = np.matmul(H,H_vals[i+1])
+        Harris_img1 = HarrisDetector(img1)
+        kp1 = Harris_img1.findCorners(thresh_ratio=thresh_ratio, nms_threshold=20)
+
+        Harris_img2 = HarrisDetector(img2)
+        kp2 = Harris_img2.findCorners(thresh_ratio=thresh_ratio, nms_threshold=20)
+
+        sift = cv2.SIFT_create()
+        kp1,des1 = sift.compute(cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY), kp1 )
+        kp2,des2 = sift.compute(cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY), kp2 )
         
-        return H
+        bf = cv2.BFMatcher()
+        matches = bf.knnMatch(des1,des2,k=2)
+        # Apply ratio test
+        good_features = []
+        for m,n in matches:
+            if m.distance < 0.7*n.distance:
+                good_features.append(m)
+
         
+        best_n = sorted(good_features, key=lambda x: x.distance)[:top_n]
+
+        if show_match:
+            best_n_plot = [[m] for m in best_n]
+            match_pt_img = cv2.drawMatchesKnn(img1,kp1,img2,kp2,best_n_plot,None,
+                            flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+            cv2.namedWindow('SIFT matched images', cv2.WINDOW_NORMAL)
+            cv2.imshow('SIFT matched images', match_pt_img)
+            cv2.waitKey(0)
+
+        return (kp1, kp2), best_n
+
     def createPanaroma(self, show_output=False, save_path=None):
 
         canvas, canvas_mask = self.createCanvas(self.bottom_pad)
@@ -313,80 +362,32 @@ class Panorama():
             cv2.imshow('Normal Rectangle Panorama', max_im_canvas)
             
         cv2.waitKey(0)
- 
-    def findHarrisfeatures(self, img1, img2, top_n=25, thresh_ratio = 0.01, show_match=False):
-
-        '''
-        Find good features to match using SIFT
-
-        Parameters:
-            img1 : First numpy image
-            img2 : Second numpy image
-            top_n : State how many top n features needed (default - 25)
-            thresh_ratio : Higher thresh ratio more Harris corners
-            show_match : Display image of matching
-        
-        Returns
-            (kp1, kp2) : Keypoints of img1 and img2 respectively
-            best_n : list of best n keypoints (default - 25)
-        '''
-
-        
-        Harris_img1 = HarrisDetector(img1)
-        kp1 = Harris_img1.findCorners(thresh_ratio=thresh_ratio, nms_threshold=20)
-
-        Harris_img2 = HarrisDetector(img2)
-        kp2 = Harris_img2.findCorners(thresh_ratio=thresh_ratio, nms_threshold=20)
-
-        sift = cv2.SIFT_create()
-        kp1,des1 = sift.compute(cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY), kp1 )
-        kp2,des2 = sift.compute(cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY), kp2 )
-        
-        bf = cv2.BFMatcher()
-        matches = bf.knnMatch(des1,des2,k=2)
-        # Apply ratio test
-        good_features = []
-        for m,n in matches:
-            if m.distance < 0.7*n.distance:
-                good_features.append(m)
-
-        
-        best_n = sorted(good_features, key=lambda x: x.distance)[:top_n]
-
-        if show_match:
-            best_n_plot = [[m] for m in best_n]
-            match_pt_img = cv2.drawMatchesKnn(img1,kp1,img2,kp2,best_n_plot,None,
-                            flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-            cv2.namedWindow('SIFT matched images', cv2.WINDOW_NORMAL)
-            cv2.imshow('SIFT matched images', match_pt_img)
-            cv2.waitKey(0)
-
-        return (kp1, kp2), best_n
 
 if __name__ == '__main__':
 
     ############# Run for a single set #############
 
-    root = 'images/panorama_img/set1'
-    save_dir = 'images/stitched_results'
+    # root = 'images/panorama_img/set3'
+    # save_dir = 'images/stitched_results'
 
 
-    pan = Panorama(root, show_imgs=False, random_order=True, 
-                        feature_selector='HARRIS')
+    # pan = Panorama(root, show_imgs=False, random_order=True, 
+    #                     feature_selector='HARRIS')
 
     # pan.findHarrisfeatures(pan.images[0],pan.images[1])
-    pan.createPanaroma(show_output=True , save_path=None)
+    # pan.createPanaroma(show_output=True , save_path=None)
 
     ############### Run for all sets ###############
 
-    # root = 'images/panorama_img/'
-    # save_dir = 'images/stitched_results'
+    root = 'images/panorama_img/'
+    save_dir = 'images/stitched_results'
 
-    # for image_folder in os.listdir(root):
-    #     print(f'\nCurrently testing {image_folder}')
-    #     pan = Panorama(os.path.join(root,image_folder), show_imgs=False,
-    #                 y_originshift=250, bottom_pad=900, random_order=True)
+    for image_folder in os.listdir(root):
+        print(f'\nCurrently testing {image_folder}')
 
-    #     pan.createPanaroma(show_output=False, save_path=save_dir)
+        pan = Panorama(os.path.join(root,image_folder), show_imgs=False,
+                        random_order=True, feature_selector='SIFT')
+
+        pan.createPanaroma(show_output=False, save_path=save_dir)
 
     
