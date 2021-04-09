@@ -5,8 +5,8 @@ from HarrisCornerDetect import HarrisDetector
 
 class Panorama():
 
-    def __init__(self, image_folder, show_imgs=False, random_order=False,
-                 feature_selector='SIFT', y_originshift=0,bottom_pad=100):
+    def __init__(self, image_folder, show_imgs=False, random_order=True,
+                 feature_selector='SIFT', y_originshift=200,bottom_pad=600):
 
         '''
         Parameters:
@@ -360,34 +360,34 @@ class Panorama():
         if show_output:
             cv2.namedWindow('Normal Rectangle Panorama', cv2.WINDOW_NORMAL)
             cv2.imshow('Normal Rectangle Panorama', max_im_canvas)
-            
+        
         cv2.waitKey(0)
+        return max_im_canvas
 
 if __name__ == '__main__':
 
     ############# Run for a single set #############
 
-    # root = 'images/panorama_img/set3'
-    # save_dir = 'images/stitched_results'
+    root = 'images/panorama_img/set3'
+    save_dir = 'images/stitched_results'
 
 
-    # pan = Panorama(root, show_imgs=False, random_order=True, 
-    #                     feature_selector='HARRIS')
+    pan = Panorama(root, show_imgs=False, random_order=True, 
+                        feature_selector='SIFT')
 
-    # pan.findHarrisfeatures(pan.images[0],pan.images[1])
-    # pan.createPanaroma(show_output=True , save_path=None)
+    stitchedIm = pan.createPanaroma(show_output=True , save_path=save_dir)
 
     ############### Run for all sets ###############
 
-    root = 'images/panorama_img/'
-    save_dir = 'images/stitched_results'
+    # root = 'images/panorama_img/'
+    # save_dir = 'images/stitched_results'
 
-    for image_folder in os.listdir(root):
-        print(f'\nCurrently testing {image_folder}')
+    # for image_folder in os.listdir(root):
+    #     print(f'\nCurrently testing {image_folder}')
 
-        pan = Panorama(os.path.join(root,image_folder), show_imgs=False,
-                        random_order=True, feature_selector='SIFT')
+    #     pan = Panorama(os.path.join(root,image_folder), show_imgs=False,
+    #                     random_order=True, feature_selector='SIFT')
 
-        pan.createPanaroma(show_output=False, save_path=save_dir)
+    #     pan.createPanaroma(show_output=False, save_path=save_dir)
 
     
