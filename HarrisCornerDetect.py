@@ -1,6 +1,10 @@
 import cv2
 import numpy as np
 from scipy import signal
+import scipy.ndimage as ndimage
+import scipy.ndimage.filters as filters
+import matplotlib.pyplot as plt
+
 
 
 class HarrisDetector():
@@ -57,7 +61,7 @@ class HarrisDetector():
         return x_grad, y_grad
 
 
-    def findCorners(self, nms_threshold=20, k=0.005, thresh_ratio=0.4, disp=False, kp_size=3):
+    def findCorners(self, nms_threshold=20, k=0.005, thresh_ratio=0.4, disp=False, kp_size=3, nms1=True):
 
         '''
         Find corners using Harris detector
@@ -92,11 +96,16 @@ class HarrisDetector():
         R_image = np.pad(R, (1,4))
         max_R = np.max(R_image) * thresh_ratio
 
-        R_image[R_image > max_R] = 255
-        R_image[R_image < max_R] = 0
+        if nms1:
 
-        corner_r, corner_c = np.nonzero(R_image)
-        corner_r, corner_c = self.nms(corner_r, corner_c, nms_threshold)
+            R_image[R_image > max_R] = 255
+            R_image[R_image < max_R] = 0
+
+            corner_r, corner_c = np.nonzero(R_image)
+            corner_r, corner_c = self.nms(corner_r, corner_c, nms_threshold)
+        
+        else:
+            corner_r, corner_c = self.nms2(R_image)
 
         kp = []
         for r,c in zip(corner_r, corner_c):
@@ -105,7 +114,7 @@ class HarrisDetector():
         if disp:
 
             for r, c in zip(corner_r, corner_c):         
-                cv2.circle(self.im, (c,r), 5, (255,0,255), thickness=2)
+                cv2.circle(self.im, (int(c),int(r)), 5, (255,0,255), thickness=2)
 
             cv2.namedWindow('R image thresholded', cv2.WINDOW_NORMAL)
             cv2.namedWindow('Final Image', cv2.WINDOW_NORMAL)
@@ -117,7 +126,7 @@ class HarrisDetector():
         
         return kp
  
-    def nms(self, r, c, distThresh):
+    def nms(self, r, c, distThresh=10):
         
         '''
         Removes points that are closer than DistThresh in L1 space 
@@ -149,6 +158,35 @@ class HarrisDetector():
             idxs = np.delete(idxs, np.concatenate(([last], np.where(dist < distThresh)[0])))
         return r[pick].astype("int"), c[pick].astype("int")
         
+
+    def nms2(self, data, neighborhoodSize=50, threshold=1):
+
+        '''
+        Retains best (highest R_image value) points in the given neighborhood 
+
+            Parameters:
+                data: R_image
+                neighborhoodSize: size of distance neighborhood. 
+                threshold: threshold value to remove small values.
+        '''
+
+        data_max = filters.maximum_filter(data, neighborhoodSize)
+        maxima = (data == data_max)
+        data_min = filters.minimum_filter(data, neighborhoodSize)
+        diff = ((data_max - data_min) > threshold)
+        maxima[diff == 0] = 0
+
+        labeled, num_objects = ndimage.label(maxima)
+        slices = ndimage.find_objects(labeled)
+        x, y = [], []
+        for dy,dx in slices:
+            x_center = (dx.start + dx.stop - 1)/2
+            x.append(x_center)
+            y_center = (dy.start + dy.stop - 1)/2    
+            y.append(y_center)
+
+        return x, y
+
 
 if __name__=='__main__':
 
