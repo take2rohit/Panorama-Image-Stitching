@@ -1,4 +1,4 @@
-# Panorama Stitching from Scratch
+# Panoramaic Image Stitching
 
 Goal of this repo is to creates a Panorama from a set of images. The images may not be in order of apperences. This repo also contains code of Harris corner written from scratch. It compares SIFT and Harris features for image stitching. 
 
@@ -6,10 +6,12 @@ Goal of this repo is to creates a Panorama from a set of images. The images may 
 
 ## How to use
 
-- Clone the repository by typing and Navigate to cloned directory  
+- Clone the repository by typing and Navigate to cloned directory
+- Install all the dependencies   
   ```bash
   git clone https://github.com/take2rohit/Paronorama-Stitching.git
   cd Paronorama-Stitching
+  pip3 install -r requirements.txt
   ```
 - Open [PanoramaStitching.py](PanoramaStitching.py) 
   - Change variable `root` to specify location of directory containg piecewise panoramaic images
