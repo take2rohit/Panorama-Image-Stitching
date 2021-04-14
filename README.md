@@ -9,8 +9,8 @@ Goal of this repo is to creates a Panorama from a set of images. The images may 
 - Clone the repository by typing and Navigate to cloned directory
 - Install all the dependencies   
   ```bash
-  git clone https://github.com/take2rohit/Paronorama-Stitching.git
-  cd Paronorama-Stitching
+  git clone https://github.com/take2rohit/Panorama-Image-Stitching.git
+  cd Panorama-Image-Stitching
   pip3 install -r requirements.txt
   ```
 - Open [PanoramaStitching.py](PanoramaStitching.py) 
